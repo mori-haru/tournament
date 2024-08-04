@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>管理者ページ</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script defer src="{{ url_for('static', filename='script.js') }}"></script>
+</head>
+<body>
+    <h1>管理者ページ</h1>
+    <p>Logged in as {{ session['username'] }} ({{ session['role'] }})</p>
+    <a href="{{ url_for('logout') }}">Logout</a>
+    <a href="{{ url_for('choose') }}">Go to Home</a>
+
+    <h2>エントリー</h2>
+    <form id="entryForm">
+        <input type="text" id="participantName" name="name" placeholder="参加者名" required>
+        <button type="submit">追加</button>
+    </form>
+
+    <h2>参加者一覧</h2>
+    <ul>
+      {% for participant in participants %}
+      <li>{{ participant.name }}</li>
+      {% endfor %}
+    </ul>
+
+    <h2>初戦トーナメント表</h2>
+    <form id="createFirstRoundForm">
+        <button id="createFirstRound" type="submit">初戦を作成</button>
+    </form>
+    <div id="firstRoundBracket" class="bracket">
+        {% for match in first_round_matches %}
+        <div class="match">
+            <div class="player">{{ match.player1.name }}</div>
+            {% if match.player2 %}
+              <div class="player">{{ match.player2.name }}</div>
+            {% else %}
+              <div class="player">不戦勝</div>
+            {% endif %}
+            <form class="resultForm" data-match-id="{{ match.id }}">
+              <select class="winnerSelect" name="winner_id" required>
+                <option value="" selected disabled>勝者を選択</option>
+                <option value="{{ match.player1.id }}">{{ match.player1.name }}</option>
+                {% if match.player2 %}
+                  <option value="{{ match.player2.id }}">{{ match.player2.name }}</option>
+                {% endif %}
+              </select>
+              <button type="submit">結果を更新</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+
+    <h2>決勝トーナメント表</h2>
+    <form id="createFinalRoundForm">
+        <button id="createFinalRound" type="submit">決勝トーナメントを作成</button>
+    </form>
+    <div id="finalRoundBracket" class="bracket"></div>
+
+    <h2>トーナメント表の初期化</h2>
+    <form id="resetTournamentForm">
+        <button id="resetTournament" type="submit">初期化</button>
+    </form>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const entryForm = document.getElementById('entryForm');
+            const participantNameInput = document.getElementById('participantName');
+            const createFirstRoundButton = document.getElementById('createFirstRound');
+            const createFinalRoundButton = document.getElementById('createFinalRound');
+            const resetTournamentButton = document.getElementById('resetTournament');
+
+            if (entryForm) {
+                entryForm.addEventListener('submit', (event) => {
+                    event.preventDefault();
+                    const participantName = participantNameInput.value.trim();
+                    if (participantName) {
+                        fetch('/add', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded'
+                            },
+                            body: new URLSearchParams({ name: participantName })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                location.reload();
+                            } else {
+                                console.error('Error adding participant');
+                            }
+                        })
+                        .catch(error => console.error('Error:', error));
+                    }
+                });
+            }
+
+            if (createFirstRoundButton) {
+                createFirstRoundButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    fetch('/create_first_round', {
+                        method: 'POST'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            console.error('Error creating first round');
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+                });
+            }
+
+            if (createFinalRoundButton) {
+                createFinalRoundButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    fetch('/create_final_round', {
+                        method: 'POST'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            fetchAndDrawBracket();
+                        } else {
+                            console.error('Error creating final round');
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+                });
+            }
+
+            document.body.addEventListener('submit', (event) => {
+                if (event.target.classList.contains('resultForm')) {
+                    event.preventDefault();
+                    const form = event.target;
+                    const matchId = form.getAttribute('data-match-id');
+                    const winnerId = form.querySelector('.winnerSelect').value;
+                    fetch('/match', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: new URLSearchParams({ match_id: matchId, winner_id: winnerId })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            fetchAndDrawBracket();
+                        } else {
+                            console.error('Error updating match');
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+                }
+            });
+
+            if (resetTournamentButton) {
+                resetTournamentButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    fetch('/reset', {
+                        method: 'POST'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            console.error('Error resetting tournament');
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+                });
+            }
+
+            function fetchAndDrawBracket() {
+                fetch('/bracket_data')
+                    .then(response => response.json())
+                    .then(data => {
+                        const finalRoundBracket = document.getElementById('finalRoundBracket');
+                        finalRoundBracket.innerHTML = ''; // 既存のトーナメント表をクリア
+                        const rounds = data.final_round_bracket;
+
+                        rounds.forEach(round => {
+                            const roundDiv = document.createElement('div');
+                            roundDiv.classList.add('round');
+
+                            round.matches.forEach(match => {
+                                const matchDiv = document.createElement('div');
+                                matchDiv.classList.add('match');
+
+                                const winnerSelect = document.createElement('select');
+                                winnerSelect.name = 'winner_id';
+                                winnerSelect.classList.add('winnerSelect');
+
+                                const optionPlaceholder = document.createElement('option');
+                                optionPlaceholder.value = '';
+                                optionPlaceholder.selected = true;
+                                optionPlaceholder.disabled = true;
+                                optionPlaceholder.textContent = '勝者を選択';
+                                winnerSelect.appendChild(optionPlaceholder);
+
+                                match.players.forEach(player => {
+                                    const option = document.createElement('option');
+                                    option.value = player.id;
+                                    option.textContent = player.name;
+                                    winnerSelect.appendChild(option);
+                                });
+
+                                const resultForm = document.createElement('form');
+                                resultForm.classList.add('resultForm');
+                                resultForm.dataset.matchId = match.id;
+
+                                const updateButton = document.createElement('button');
+                                updateButton.type = 'submit';
+                                updateButton.textContent = '結果を更新';
+
+                                resultForm.appendChild(winnerSelect);
+                                resultForm.appendChild(updateButton);
+                                matchDiv.appendChild(resultForm);
+                                roundDiv.appendChild(matchDiv);
+                            });
+
+                            finalRoundBracket.appendChild(roundDiv);
+                        });
+                    });
+            }
+
+            fetchAndDrawBracket();
+        });
+    </script>
+</body>
+</html>

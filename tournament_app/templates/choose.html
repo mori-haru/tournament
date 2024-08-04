@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Choose Role</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>ビリヤード月例大会</h1>
+    <h2>ロール選択</h2>
+    <a href="{{ url_for('participant') }}"><button>参加者として参加</button></a>
+    <a href="{{ url_for('admin') }}"><button>運営者としてログイン</button></a>
+</body>
+</html>

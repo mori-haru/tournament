@@ -1,0 +1,7 @@
+# バージョン
+Flask==2.0.2
+Flask-SQLAlchemy==2.5.1
+
+# インストール方法
+pip install -r requirements.txt
+

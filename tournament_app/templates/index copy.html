@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>参加者ページ</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script defer src="{{ url_for('static', filename='script.js') }}"></script>
+</head>
+<body>
+    <h1>ビリヤード月例大会</h2>
+    <h2>参加者ページ</h2>
+    <a href="{{ url_for('choose') }}">ホームに戻る</a>
+
+    <h2>エントリー</h2>
+    <form id="entryForm">
+        <input type="text" id="participantName" name="name" placeholder="参加者名" required>
+        <button type="submit">追加</button>
+    </form>
+
+    <h2>参加者一覧</h2>
+    <ul>
+      {% for participant in participants %}
+      <li>{{ participant.name }}</li>
+      {% endfor %}
+    </ul>
+
+    <h2>初戦トーナメント表</h2>
+    <div class="bracket">
+      {% for match in first_round_matches %}
+      <div class="match">
+        <div class="player">{{ match.player1.name }}</div>
+        {% if match.player2 %}
+          <div class="player">{{ match.player2.name }}</div>
+        {% else %}
+          <div class="player">不戦勝</div>
+        {% endif %}
+        <form class="resultForm" data-match-id="{{ match.id }}">
+          <select class="winnerSelect" name="winner_id" required>
+            <option value="" selected disabled>勝者を選択</option>
+            <option value="{{ match.player1.id }}">{{ match.player1.name }}</option>
+            {% if match.player2 %}
+              <option value="{{ match.player2.id }}">{{ match.player2.name }}</option>
+            {% endif %}
+          </select>
+          <button type="submit">結果を更新</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+
+    <h2>決勝トーナメント表</h2>
+    <canvas id="tournamentCanvas" width="800" height="600"></canvas>
+
+    <!-- Hidden form for entering match results -->
+    <form id="resultForm" style="display:none;">
+        <label for="winnerSelect">勝者:</label>
+        <select id="winnerSelect" name="winner" required></select>
+        <button type="submit">確定する</button>
+        <button type="button" id="cancelButton">取り消し</button>
+    </form>
+</body>
+</html>

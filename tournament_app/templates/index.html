@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>参加者ページ</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script defer src="{{ url_for('static', filename='script.js') }}"></script>
+</head>
+<body>
+    <h1>ビリヤード月例大会</h2>
+    <h2>参加者ページ</h2>
+    <a href="{{ url_for('choose') }}">ホームに戻る</a>
+
+    <h2>エントリー</h2>
+    <form id="entryForm">
+        <input type="text" id="participantName" name="name" placeholder="参加者名" required>
+        <button type="submit">追加</button>
+    </form>
+
+    <h2>参加者一覧</h2>
+    <ul>
+      {% for participant in participants %}
+      <li>{{ participant.name }}</li>
+      {% endfor %}
+    </ul>
+
+    <h2>初戦トーナメント表</h2>
+    <div class="bracket">
+      {% for match in first_round_matches %}
+      <div class="match">
+        <div class="player">{{ match.player1.name }}</div>
+        {% if match.player2 %}
+          <div class="player">{{ match.player2.name }}</div>
+        {% else %}
+          <div class="player">不戦勝</div>
+        {% endif %}
+        <form class="resultForm" data-match-id="{{ match.id }}">
+          <select class="winnerSelect" name="winner_id" required>
+            <option value="" selected disabled>勝者を選択</option>
+            <option value="{{ match.player1.id }}">{{ match.player1.name }}</option>
+            {% if match.player2 %}
+              <option value="{{ match.player2.id }}">{{ match.player2.name }}</option>
+            {% endif %}
+          </select>
+          <button type="submit">結果を更新</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+
+    <h2>決勝トーナメント表</h2>
+    <canvas id="tournamentCanvas" width="800" height="600"></canvas>
+
+    <!-- Hidden form for entering match results -->
+    <form id="resultForm" style="display:none;">
+        <label for="winnerSelect">勝者:</label>
+        <select id="winnerSelect" name="winner" required></select>
+        <button type="submit">確定する</button>
+        <button type="button" id="cancelButton">取り消し</button>
+    </form>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const entryForm = document.getElementById('entryForm');
+            const participantNameInput = document.getElementById('participantName');
+            const resultForm = document.getElementById('resultForm');
+            const winnerSelect = document.getElementById('winnerSelect');
+            const cancelButton = document.getElementById('cancelButton');
+            let selectedMatch = null;
+
+            entryForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+                const participantName = participantNameInput.value.trim();
+                if (participantName) {
+                    fetch('/add', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: new URLSearchParams({ name: participantName })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            console.error('Error adding participant');
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+                }
+            });
+
+            document.body.addEventListener('submit', (event) => {
+                if (event.target.classList.contains('resultForm')) {
+                    event.preventDefault();
+                    const form = event.target;
+                    const matchId = form.getAttribute('data-match-id');
+                    const winnerId = form.querySelector('.winnerSelect').value;
+                    fetch('/match', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: new URLSearchParams({ match_id: matchId, winner_id: winnerId })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            fetchAndDrawBracket();
+                        } else {
+                            console.error('Error updating match');
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+                }
+            });
+
+            cancelButton.addEventListener('click', () => {
+                resultForm.style.display = 'none';
+                selectedMatch = null;
+            });
+
+            const canvas = document.getElementById('tournamentCanvas');
+            const context = canvas.getContext('2d');
+
+            const playerBoxHeight = 16;
+            const boxPadding = 8;
+            const matchHeight = 40;
+            const matchGap = 20;
+            const roundGap = 150;
+            let matches = [];
+
+            function drawBracket(matches, x, y) {
+                const totalRounds = 4; // ベスト16のトーナメント
+                let yOffset = y;
+
+                matches.forEach((round, roundIndex) => {
+                    let currentX = x + roundIndex * roundGap;
+                    round.matches.forEach((match, matchIndex) => {
+                        const midY = yOffset + (matchHeight / 2) + (boxPadding / 2);
+
+                        // プレイヤー1の名前を描画し、枠線を描く
+                        context.fillText(match.players[0].name, currentX, yOffset);
+                        context.strokeRect(currentX - 2, yOffset - playerBoxHeight, 150, playerBoxHeight + boxPadding);
+
+                        // プレイヤー2の名前を描画し、枠線を描く
+                        context.fillText(match.players[1].name, currentX, yOffset + matchHeight);
+                        context.strokeRect(currentX - 2, yOffset + matchHeight - playerBoxHeight, 150, playerBoxHeight + boxPadding);
+
+                        // 枠線の中央に線を引く
+                        context.moveTo(currentX + 150, midY);
+                        context.lineTo(currentX + roundGap, midY);
+                        context.stroke();
+
+                        yOffset += matchHeight + matchGap;
+                    });
+
+                    yOffset += matchGap;
+                });
+            }
+
+            function fetchAndDrawBracket() {
+                fetch('/bracket_data')
+                    .then(response => response.json())
+                    .then(data => {
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+                        matches = data.final_round_bracket;
+                        drawBracket(matches, 20, 20);
+                    });
+            }
+
+            canvas.addEventListener('click', (event) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                let yOffset = 20;
+
+                matches.forEach((round) => {
+                    round.matches.forEach((match) => {
+                        if (x > 20 && x < 170 && y > yOffset && y < yOffset + matchHeight + matchGap) {
+                            selectedMatch = match;
+                            resultForm.style.display = 'block';
+                            winnerSelect.innerHTML = `
+                                <option value="" selected disabled>勝者を選択</option>
+                                <option value="${match.players[0].id}">${match.players[0].name}</option>
+                                <option value="${match.players[1].id}">${match.players[1].name}</option>
+                            `;
+                        }
+                        yOffset += matchHeight + matchGap;
+                    });
+
+                    yOffset += matchGap;
+                });
+            });
+
+            resultForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+                const winnerId = winnerSelect.value;
+                fetch('/match', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({ match_id: selectedMatch.id, winner_id: winnerId })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        resultForm.style.display = 'none';
+                        selectedMatch = null;
+                        fetchAndDrawBracket();
+                    } else {
+                        console.error('Error updating match');
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            });
+
+            fetchAndDrawBracket();
+        });
+    </script>
+</body>
+</html>
