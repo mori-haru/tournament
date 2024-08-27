@@ -1,0 +1,78 @@
+/* 全体のレイアウト設定 */
+.tournament {
+    position: relative;
+    width: 1200px;
+    height: 600px; 
+}
+
+
+
+/* 左側のボックス設定 */
+.left-boxes {
+    position: absolute;
+    top: 20px; 
+    /* left: 20px;  */
+}
+
+/* 右側のボックス設定 */
+.right-boxes {
+    position: absolute;
+    top: 20px; /* 上からの距離調整 */
+    right: -220px;
+}
+
+.final-boxes {
+    position: absolute;
+    top: 90px;
+    right: 452px;
+}
+
+/* .right-boxes {
+    margin-right:150px;
+} */
+
+.right-boxes .round4 {
+    margin-right: 150px;
+    margin-left: 150px;
+}
+
+.right-boxes .round3 {
+    margin-right: 300px;
+    margin-left: 300px;
+}
+
+.right-boxes .round2 {
+    margin-right: 150px;
+    margin-left: 450px;
+} 
+
+.right-boxes .round1 {
+    margin-left: 600px;
+}
+
+/* 一回戦と二回戦のボックス共通設定 */
+.textbox {
+    width: 80px;
+    /* margin-bottom: 7px;  */
+}
+
+/* 二回戦ボックスの中央寄せ設定 */
+.left-boxes .round2 {
+    margin-left: 150px; /* 左側の二回戦ボックスの位置調整 */
+}
+
+.left-boxes .round3 {
+    margin-left: 300px;
+}
+
+.left-boxes .round4 {
+    margin-left: 450px;
+}
+
+.left-boxes .round5 {
+    margin-left: 600px;
+}
+
+svg {
+    position: absolute;
+}
